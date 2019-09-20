@@ -6,4 +6,4 @@ sudo killall -9 pigpiod
 sudo rm /var/run/pigpio.pid
 sudo pigpiod
 
-python3 door_servo.py
+python3 /home/pi/github/DoorKeyPi/main.py
