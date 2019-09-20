@@ -39,11 +39,13 @@ class ServoControllerPigpio():
     def close(self):
         return
 
+
 class Switch():
     def __init__(self, pin=None):
         self._pin = pin
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self._pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
+
     def is_pushed(self):
         if GPIO.input(self._pin) == GPIO.LOW:
             return True
@@ -89,6 +91,7 @@ class DoorServoState:
 
         # store z1
         self._lastState = ''
+        self._sw_counter = 0
 
     # ============================== Sensor Manager ============================== #
     def update_sensor(self):
@@ -110,10 +113,15 @@ class DoorServoState:
     def locked_state(self, lastState):
         if lastState != 'locked':
             self._servo.set_deg(90)
+        newState = 'locked'
+
         if not self._sw.is_pushed():
+            self._sw_counter += 1
+    
+        if self._sw_counter > 50:
+            self._sw_counter = 0
             newState = 'unlocking'
-        else:
-            newState = 'locked'
+
         return (newState)
 
     def unlocking_state(self, lastState):
@@ -127,20 +135,16 @@ class DoorServoState:
     def unlocked_state(self, lastState):
         if lastState != 'unlocked':
             self._servo.set_deg(90)
-        if self._sw.is_pushed():
-            newState = 'locking'
-        else:
-            newState = 'unlocked'
-        return (newState)
 
-    def unlocked_state(self, lastState):
-        if lastState != 'unlocked':
-            self._led.on()
-            self._servo.set_deg(90)
+        newState = 'unlocked'
+
         if self._sw.is_pushed():
+            self._sw_counter += 1
+    
+        if self._sw_counter > 50:
+            self._sw_counter = 0
             newState = 'locking'
-        else:
-            newState = 'unlocked'
+
         return (newState)
 
 
@@ -183,4 +187,3 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         GPIO.cleanup()
-
