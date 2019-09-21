@@ -1,9 +1,12 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import binascii
+import nfc
+import pigpio
 import RPi.GPIO as GPIO
 import time
-import pigpio
+import yaml
 from statemachine import StateMachine
 
 
@@ -79,14 +82,34 @@ class LED_PWM():
         self._pwm.stop()
 
 
-class DoorServoState:
+class CompareNfcIdm:
     def __init__(self):
+        self._suica = nfc.clf.RemoteTarget("212F")
+        self._suica.sensf_req = bytearray.fromhex("0000030000")
+        self._clf = nfc.ContactlessFrontend("usb")
+    
+    def is_in_list(self, idm_list):
+        target = self._clf.sense(self._suica,iterations=3,interval=1.0)
+        if target:
+            tag = nfc.tag.activate(self._clf,target)
+            tag.sys = 3
+            received_idm = binascii.hexlify(tag.idm)
+
+            for listed_idm in idm_list:
+                if listed_idm == received_idm.decode():
+                    return True
+        return False
+
+class DoorServoState:
+    def __init__(self, cfg):
         # instance
+        self._nfc = CompareNfcIdm()
         self._sw = Switch(pin=14)
         self._led = LED_PWM(pin=15)
         self._servo = ServoControllerPigpio(pin=17)
         
         # parameter
+        self._idm_list = cfg['family_idm']
         self._servo_interval_sec = 2.0
 
         # store z1
@@ -95,7 +118,8 @@ class DoorServoState:
 
     # ============================== Sensor Manager ============================== #
     def update_sensor(self):
-        self._sw_state = self._sw.is_pushed()
+        self._sw_pushed = self._sw.is_pushed()
+        self._nfc_matched = self._nfc.is_in_list(self._idm_list)
 
     # ============================== FSM ============================== #
     def start_state(self, lastState):
@@ -107,7 +131,11 @@ class DoorServoState:
             self._led.on()
             self._servo.set_deg(180)
             time.sleep(self._servo_interval_sec)
-        newState = 'locked'
+        newState = 'locking'
+
+        if not self._nfc_matched:
+            newState = 'locked'
+
         return (newState)
 
     def locked_state(self, lastState):
@@ -116,10 +144,10 @@ class DoorServoState:
             self._servo.set_deg(90)
         newState = 'locked'
 
-        if not self._sw.is_pushed():
+        if not self._sw_pushed:
             self._sw_counter += 1
     
-        if self._sw_counter > 50:
+        if self._sw_counter > 50 or self._nfc_matched:
             self._sw_counter = 0
             newState = 'unlocking'
 
@@ -130,20 +158,23 @@ class DoorServoState:
             self._led.on()
             self._servo.set_deg(0)
             time.sleep(self._servo_interval_sec)
-        newState = 'unlocked'
+        newState = 'unlocking'
+
+        if not self._nfc_matched:
+            newState = 'unlocked'
+
         return (newState)
 
     def unlocked_state(self, lastState):
         if lastState != 'unlocked':
             self._led.blink()
             self._servo.set_deg(90)
-
         newState = 'unlocked'
 
-        if self._sw.is_pushed():
+        if self._sw_pushed:
             self._sw_counter += 1
     
-        if self._sw_counter > 50:
+        if self._sw_counter > 50 or self._nfc_matched:
             self._sw_counter = 0
             newState = 'locking'
 
@@ -151,9 +182,13 @@ class DoorServoState:
 
 
 if __name__ == '__main__':
-    service = DoorServoState()
+    # get yaml config file
+    ymlfile = open('config.yml')
+    cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
+    ymlfile.close()
 
     # FSM setup
+    service = DoorServoState(cfg)
     m = StateMachine()
 
     m.add_state('start', service.start_state)
