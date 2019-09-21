@@ -89,7 +89,7 @@ class CompareNfcIdm:
         self._clf = nfc.ContactlessFrontend("usb")
     
     def is_in_list(self, idm_list):
-        target = self._clf.sense(self._suica,iterations=3,interval=1.0)
+        target = self._clf.sense(self._suica,iterations=3,interval=0.01)
         if target:
             tag = nfc.tag.activate(self._clf,target)
             tag.sys = 3
@@ -110,7 +110,7 @@ class DoorServoState:
         
         # parameter
         self._idm_list = cfg['family_idm']
-        self._servo_interval_sec = 2.0
+        self._servo_interval_sec = 1.0
 
         # store z1
         self._lastState = ''
@@ -120,10 +120,16 @@ class DoorServoState:
     def update_sensor(self):
         self._sw_pushed = self._sw.is_pushed()
         self._nfc_matched = self._nfc.is_in_list(self._idm_list)
+        # print(self._sw_pushed, self._nfc_matched)
+
+    def store_last_sensor(self, lastState):
+        self._lastState = lastState
+        self._sw_pushed_z1 = self._sw_pushed
+        self._nfc_matched_z1 = self._nfc_matched
 
     # ============================== FSM ============================== #
     def start_state(self, lastState):
-        newState = 'unlocked'
+        newState = 'locking'
         return (newState)
 
     def locking_state(self, lastState):
@@ -144,11 +150,9 @@ class DoorServoState:
             self._servo.set_deg(90)
         newState = 'locked'
 
-        if not self._sw_pushed:
-            self._sw_counter += 1
-    
-        if self._sw_counter > 50 or self._nfc_matched:
-            self._sw_counter = 0
+        if (self._sw_pushed_z1 == True and self._sw_pushed == False) \
+            or (self._sw_pushed_z1 == False and self._sw_pushed == True) \
+            or self._nfc_matched:
             newState = 'unlocking'
 
         return (newState)
@@ -171,11 +175,9 @@ class DoorServoState:
             self._servo.set_deg(90)
         newState = 'unlocked'
 
-        if self._sw_pushed:
-            self._sw_counter += 1
-    
-        if self._sw_counter > 50 or self._nfc_matched:
-            self._sw_counter = 0
+        if (self._sw_pushed_z1 == False and self._sw_pushed == True) \
+            or (self._sw_pushed_z1 == True and self._sw_pushed == False) \
+            or self._nfc_matched:
             newState = 'locking'
 
         return (newState)
@@ -183,7 +185,7 @@ class DoorServoState:
 
 if __name__ == '__main__':
     # get yaml config file
-    ymlfile = open('config.yml')
+    ymlfile = open('/home/pi/github/DoorKeyPi/config.yml')
     cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
     ymlfile.close()
 
@@ -214,6 +216,9 @@ if __name__ == '__main__':
             # change state
             (newState) = handler(lastState)
             handler = m.handlers[newState.upper()]
+
+            # store sensor
+            service.store_last_sensor(lastState)
 
             if lastState != currentState:
                 print(lastState, '>>', currentState)
