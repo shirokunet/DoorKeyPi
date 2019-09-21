@@ -87,7 +87,7 @@ class DoorServoState:
         self._servo = ServoControllerPigpio(pin=17)
         
         # parameter
-        self._servo_interval_sec = 3.0
+        self._servo_interval_sec = 2.0
 
         # store z1
         self._lastState = ''
@@ -104,7 +104,7 @@ class DoorServoState:
 
     def locking_state(self, lastState):
         if lastState != 'locking':
-            self._led.blink()
+            self._led.on()
             self._servo.set_deg(180)
             time.sleep(self._servo_interval_sec)
         newState = 'locked'
@@ -127,7 +127,7 @@ class DoorServoState:
 
     def unlocking_state(self, lastState):
         if lastState != 'unlocking':
-            self._led.blink()
+            self._led.on()
             self._servo.set_deg(0)
             time.sleep(self._servo_interval_sec)
         newState = 'unlocked'
@@ -135,7 +135,7 @@ class DoorServoState:
 
     def unlocked_state(self, lastState):
         if lastState != 'unlocked':
-            self._led.on()
+            self._led.blink()
             self._servo.set_deg(90)
 
         newState = 'unlocked'
