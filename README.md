@@ -1,6 +1,6 @@
 # DoorKeyPi
 
-![](https://lh3.googleusercontent.com/-TlhiL64-6R82dXqiOxBS3k3DdnpaFt-oqZpi9etecmrK0NtJXAwLIt3EPnwOBNchSFUaXy7FTtP2D8g-e--EHs67W6O4vE39Orozl5c6yWkbQmuP9Wk9hU_WO4nNluv4Mr-NquXoQ)
+![](https://lh3.googleusercontent.com/BafTnZZaonXh5zDhZO2JYBZS09j1qYkvKIRJ49D-YAUQlJUe7v9gUlC_KqHxu2HfPwUldZXpXGt6JvPuU9O-fMyeVHnE4iH4fuzvY6XtMHqwB8dvM2Jqz1RdNEXFGPZB2yaUn7N-Ig)
 
 
 ### Prerequisites
